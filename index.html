@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>英語スピーキング練習</title>
+<title>スピーキング練習</title>
 
 <style>
 body {
@@ -159,6 +159,14 @@ Open your book.</textarea>
             value="0.8"
             id="speedSlider">
     </label>
+    <label>
+        言語
+        <select id="languageSelect">
+            <option value="en">🇺🇸 English</option>
+            <option value="ko">🇰🇷 한국어</option>
+            <option value="es">🇪🇸 Español</option>
+        </select>
+    </label>
 </div>
 
 <div class="card">
@@ -220,7 +228,6 @@ if (!SpeechRecognition) {
 const recognition =
     new SpeechRecognition();
 
-recognition.lang = "en-US";
 recognition.interimResults = false;
 recognition.maxAlternatives = 1;
 
@@ -230,18 +237,71 @@ let running = false;
 let paused = false;
 let showText = true;
 
+const languageConfig = {
+    en: {
+        speech: "en-US",
+        recognition: "en-US",
+        threshold: 70
+    },
+    ko: {
+        speech: "ko-KR",
+        recognition: "ko-KR",
+        threshold: 60
+    },
+    es: {
+        speech: "es-ES",
+        recognition: "es-ES",
+        threshold: 75
+    }
+};
+
 function normalize(text) {
     return text
         .toLowerCase()
-        .replace(/[.,!?']/g, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.,!?'¿¡。、！？…·「」『』]/g, "")
         .replace(/\s+/g, " ")
         .trim();
+}
+
+function isKorean(text) {
+    return /[\uAC00-\uD7A3]/.test(text);
 }
 
 function similarity(target, spoken) {
 
     target = normalize(target);
     spoken = normalize(spoken);
+
+    if (isKorean(target)) {
+
+        const targetChars =
+            target.replace(/\s/g, "").split("");
+
+        const spokenChars =
+            spoken.replace(/\s/g, "").split("");
+
+        let matched = 0;
+
+        const spokenCopy =
+            [...spokenChars];
+
+        targetChars.forEach(char => {
+            const idx =
+                spokenCopy.indexOf(char);
+            if (idx !== -1) {
+                matched++;
+                spokenCopy.splice(idx, 1);
+            }
+        });
+
+        return matched /
+            Math.max(
+                targetChars.length,
+                1
+            );
+    }
 
     const targetWords =
         target.split(" ");
@@ -309,7 +369,14 @@ function speak(text, callback) {
             text
         );
 
-    utterance.lang = "en-US";
+    const selectedLanguage =
+        document.getElementById(
+            "languageSelect"
+        ).value;
+    utterance.lang =
+        languageConfig[
+            selectedLanguage
+        ].speech;
 
     utterance.rate =
         parseFloat(
@@ -386,6 +453,15 @@ function practiceCurrentSentence() {
         ).textContent =
             "🎤 聞き取り中…";
 
+        const selectedLanguage =
+            document.getElementById(
+                "languageSelect"
+            ).value;
+        recognition.lang =
+            languageConfig[
+                selectedLanguage
+            ].recognition;
+
         recognition.start();
     });
 }
@@ -430,7 +506,15 @@ function(event) {
     ).textContent =
         score + "%";
 
-    if (score >= 70) {
+    const selectedLanguage =
+        document.getElementById(
+            "languageSelect"
+        ).value;
+    const threshold =
+        languageConfig[
+            selectedLanguage
+        ].threshold;
+    if (score >= threshold) {
 
         document.getElementById(
             "status"
