@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英語スピーキング練習</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+h1 {
+    margin-top: 0;
+}
+
+textarea {
+    width: 100%;
+    height: 180px;
+    font-size: 16px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+    align-items: center;
+}
+
+button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.start {
+    background: #2563eb;
+    color: white;
+}
+
+.stop {
+    background: #ef4444;
+    color: white;
+}
+
+.toggle {
+    background: #10b981;
+    color: white;
+}
+
+.card {
+    margin-top: 24px;
+    padding: 20px;
+    border-radius: 16px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+}
+
+.sentence {
+    font-size: 28px;
+    font-weight: bold;
+    min-height: 60px;
+    margin-bottom: 12px;
+}
+
+.small {
+    color: #666;
+    margin-top: 12px;
+}
+
+.score {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#recognized {
+    font-size: 24px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 50px;
+    margin-top: 8px;
+}
+
+#micStatus {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+input[type="range"] {
+    width: 200px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>英語スピーキング練習</h1>
+
+<p>英文を1行ずつ貼ってください：</p>
+
+<textarea id="sentences">How was your day?
+Are you ready for bed?
+I want you to try again.
+Please sit down.
+Open your book.</textarea>
+
+<div class="controls">
+    <button class="start" onclick="startPractice()">
+        スタート
+    </button>
+
+    <button class="stop" onclick="stopPractice()">
+        停止
+    </button>
+
+    <button class="toggle"
+        onclick="toggleText()"
+        id="toggleBtn">
+        文章表示: ON
+    </button>
+
+    <label>
+        音声速度
+        <input
+            type="range"
+            min="0.5"
+            max="1.2"
+            step="0.1"
+            value="0.8"
+            id="speedSlider">
+    </label>
+</div>
+
+<div class="card">
+
+    <div class="small">
+        現在の文章
+    </div>
+
+    <div class="sentence"
+        id="sentence">
+    </div>
+
+    <div class="small">
+        マイク状態
+    </div>
+
+    <div id="micStatus">
+        🎤 待機中
+    </div>
+
+    <div class="small">
+        あなたが話した内容（文字起こし）
+    </div>
+
+    <div id="recognized">
+        （まだ認識されていません）
+    </div>
+
+    <div class="small">
+        一致率
+    </div>
+
+    <div class="score"
+        id="score">
+        0%
+    </div>
+
+    <div class="small"
+        id="status">
+        待機中
+    </div>
+
+</div>
+
+</div>
+
+<script>
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+    alert(
+        "Chromeで開いてください（音声認識非対応）"
+    );
+}
+
+const recognition =
+    new SpeechRecognition();
+
+recognition.lang = "en-US";
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+
+let sentenceList = [];
+let currentIndex = 0;
+let running = false;
+let showText = true;
+
+function normalize(text) {
+    return text
+        .toLowerCase()
+        .replace(/[.,!?']/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function similarity(target, spoken) {
+
+    target = normalize(target);
+    spoken = normalize(spoken);
+
+    const targetWords =
+        target.split(" ");
+
+    const spokenWords =
+        spoken.split(" ");
+
+    let matched = 0;
+
+    targetWords.forEach(word => {
+        if (
+            spokenWords.includes(word)
+        ) {
+            matched++;
+        }
+    });
+
+    return matched /
+        Math.max(
+            targetWords.length,
+            1
+        );
+}
+
+function playCorrectSound() {
+
+    const audioContext =
+        new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
+
+    const oscillator =
+        audioContext
+        .createOscillator();
+
+    const gainNode =
+        audioContext
+        .createGain();
+
+    oscillator.connect(gainNode);
+
+    gainNode.connect(
+        audioContext.destination
+    );
+
+    oscillator.frequency.value =
+        800;
+
+    oscillator.type = "sine";
+
+    gainNode.gain.setValueAtTime(
+        0.2,
+        audioContext.currentTime
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime
+        + 0.15
+    );
+}
+
+function speak(text, callback) {
+
+    speechSynthesis.cancel();
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            text
+        );
+
+    utterance.lang = "en-US";
+
+    utterance.rate =
+        parseFloat(
+            document
+            .getElementById(
+                "speedSlider"
+            ).value
+        );
+
+    utterance.onend = () => {
+        setTimeout(
+            callback,
+            800
+        );
+    };
+
+    speechSynthesis.speak(
+        utterance
+    );
+}
+
+function practiceCurrentSentence() {
+
+    if (!running) return;
+
+    const current =
+        sentenceList[currentIndex];
+
+    document.getElementById(
+        "sentence"
+    ).textContent =
+        showText
+        ? current
+        : "••••••••";
+
+    document.getElementById(
+        "recognized"
+    ).textContent =
+        "（聞き取り待機中）";
+
+    document.getElementById(
+        "score"
+    ).textContent =
+        "0%";
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "読み上げ中…";
+
+    speak(current, () => {
+
+        if (!running) return;
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "あなたの番です";
+
+        document.getElementById(
+            "micStatus"
+        ).textContent =
+            "🎤 聞き取り中… 話してください";
+
+        recognition.start();
+    });
+}
+
+recognition.onresult =
+function(event) {
+
+    document.getElementById(
+        "micStatus"
+    ).textContent =
+        "✅ 音声認識完了";
+
+    const spoken =
+        event.results[0][0]
+        .transcript;
+
+    const target =
+        sentenceList[
+            currentIndex
+        ];
+
+    document.getElementById(
+        "recognized"
+    ).textContent =
+        spoken;
+
+    const score =
+        Math.round(
+            similarity(
+                target,
+                spoken
+            ) * 100
+        );
+
+    document.getElementById(
+        "score"
+    ).textContent =
+        score + "%";
+
+    if (score >= 70) {
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "正解！次へ";
+
+        playCorrectSound();
+
+        currentIndex++;
+
+        if (
+            currentIndex >=
+            sentenceList.length
+        ) {
+            currentIndex = 0;
+        }
+
+        setTimeout(
+            practiceCurrentSentence,
+            700
+        );
+
+    } else {
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "もう一度！";
+
+        setTimeout(
+            practiceCurrentSentence,
+            700
+        );
+    }
+};
+
+recognition.onerror =
+function() {
+
+    document.getElementById(
+        "micStatus"
+    ).textContent =
+        "❌ 聞き取れませんでした";
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "再挑戦";
+
+    setTimeout(
+        practiceCurrentSentence,
+        700
+    );
+};
+
+function startPractice() {
+
+    sentenceList =
+        document
+        .getElementById(
+            "sentences"
+        )
+        .value
+        .split("\n")
+        .map(
+            s => s.trim()
+        )
+        .filter(Boolean);
+
+    if (
+        sentenceList.length === 0
+    ) {
+        alert(
+            "英文を入力してください"
+        );
+        return;
+    }
+
+    currentIndex = 0;
+    running = true;
+
+    practiceCurrentSentence();
+}
+
+function stopPractice() {
+
+    running = false;
+
+    speechSynthesis.cancel();
+
+    recognition.stop();
+
+    document.getElementById(
+        "micStatus"
+    ).textContent =
+        "⏹️ 停止中";
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "停止しました";
+}
+
+function toggleText() {
+
+    showText = !showText;
+
+    document.getElementById(
+        "toggleBtn"
+    ).textContent =
+        "文章表示: " +
+        (
+            showText
+            ? "ON"
+            : "OFF"
+        );
+
+    if (
+        running &&
+        sentenceList.length > 0
+    ) {
+
+        document.getElementById(
+            "sentence"
+        ).textContent =
+            showText
+            ? sentenceList[
+                currentIndex
+            ]
+            : "••••••••";
+    }
+}
+
+</script>
+
+</body>
+</html>
