@@ -159,6 +159,14 @@ Open your book.</textarea>
             value="0.8"
             id="speedSlider">
     </label>
+    <label>
+    言語
+    <select id="languageSelect">
+        <option value="en">🇺🇸 English</option>
+        <option value="ko">🇰🇷 한국어</option>
+        <option value="es">🇪🇸 Español</option>
+    </select>
+</label>
 </div>
 
 <div class="card">
@@ -229,6 +237,23 @@ let currentIndex = 0;
 let running = false;
 let paused = false;
 let showText = true;
+const languageConfig = {
+    en: {
+        speech: "en-US",
+        recognition: "en-US",
+        threshold: 70
+    },
+    ko: {
+        speech: "ko-KR",
+        recognition: "ko-KR",
+        threshold: 60
+    },
+    es: {
+        speech: "es-ES",
+        recognition: "es-ES",
+        threshold: 75
+    }
+};
 
 function normalize(text) {
     return text
