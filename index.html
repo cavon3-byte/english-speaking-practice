@@ -220,7 +220,7 @@ if (!SpeechRecognition) {
 const recognition =
     new SpeechRecognition();
 
-recognition.lang = "en-US";
+
 recognition.interimResults = false;
 recognition.maxAlternatives = 1;
 
@@ -386,6 +386,16 @@ function practiceCurrentSentence() {
         ).textContent =
             "🎤 聞き取り中…";
 
+        const selectedLanguage =
+    document.getElementById(
+        "languageSelect"
+    ).value;
+
+recognition.lang =
+    languageConfig[
+        selectedLanguage
+    ].recognition;
+
         recognition.start();
     });
 }
@@ -430,7 +440,17 @@ function(event) {
     ).textContent =
         score + "%";
 
-    if (score >= 70) {
+    const selectedLanguage =
+    document.getElementById(
+        "languageSelect"
+    ).value;
+
+const threshold =
+    languageConfig[
+        selectedLanguage
+    ].threshold;
+
+if (score >= threshold) {
 
         document.getElementById(
             "status"
