@@ -55,6 +55,11 @@ button {
     color: white;
 }
 
+.pause {
+    background: #f59e0b;
+    color: white;
+}
+
 .stop {
     background: #ef4444;
     color: white;
@@ -127,11 +132,15 @@ Open your book.</textarea>
 
 <div class="controls">
     <button class="start" onclick="startPractice()">
-        スタート
+        ▶ 再生
+    </button>
+
+    <button class="pause" onclick="pausePractice()">
+        ⏸ 一時停止
     </button>
 
     <button class="stop" onclick="stopPractice()">
-        停止
+        ⏹ 停止
     </button>
 
     <button class="toggle"
@@ -218,6 +227,7 @@ recognition.maxAlternatives = 1;
 let sentenceList = [];
 let currentIndex = 0;
 let running = false;
+let paused = false;
 let showText = true;
 
 function normalize(text) {
@@ -265,22 +275,17 @@ function playCorrectSound() {
         )();
 
     const oscillator =
-        audioContext
-        .createOscillator();
+        audioContext.createOscillator();
 
     const gainNode =
-        audioContext
-        .createGain();
+        audioContext.createGain();
 
     oscillator.connect(gainNode);
-
     gainNode.connect(
         audioContext.destination
     );
 
-    oscillator.frequency.value =
-        800;
-
+    oscillator.frequency.value = 800;
     oscillator.type = "sine";
 
     gainNode.gain.setValueAtTime(
@@ -291,8 +296,7 @@ function playCorrectSound() {
     oscillator.start();
 
     oscillator.stop(
-        audioContext.currentTime
-        + 0.15
+        audioContext.currentTime + 0.15
     );
 }
 
@@ -316,6 +320,12 @@ function speak(text, callback) {
         );
 
     utterance.onend = () => {
+
+        if (
+            !running ||
+            paused
+        ) return;
+
         setTimeout(
             callback,
             800
@@ -329,7 +339,10 @@ function speak(text, callback) {
 
 function practiceCurrentSentence() {
 
-    if (!running) return;
+    if (
+        !running ||
+        paused
+    ) return;
 
     const current =
         sentenceList[currentIndex];
@@ -358,7 +371,10 @@ function practiceCurrentSentence() {
 
     speak(current, () => {
 
-        if (!running) return;
+        if (
+            !running ||
+            paused
+        ) return;
 
         document.getElementById(
             "status"
@@ -368,7 +384,7 @@ function practiceCurrentSentence() {
         document.getElementById(
             "micStatus"
         ).textContent =
-            "🎤 聞き取り中… 話してください";
+            "🎤 聞き取り中…";
 
         recognition.start();
     });
@@ -376,6 +392,11 @@ function practiceCurrentSentence() {
 
 recognition.onresult =
 function(event) {
+
+    if (
+        !running ||
+        paused
+    ) return;
 
     document.getElementById(
         "micStatus"
@@ -449,15 +470,15 @@ function(event) {
 recognition.onerror =
 function() {
 
+    if (
+        !running ||
+        paused
+    ) return;
+
     document.getElementById(
         "micStatus"
     ).textContent =
         "❌ 聞き取れませんでした";
-
-    document.getElementById(
-        "status"
-    ).textContent =
-        "再挑戦";
 
     setTimeout(
         practiceCurrentSentence,
@@ -466,6 +487,13 @@ function() {
 };
 
 function startPractice() {
+
+    if (paused) {
+        paused = false;
+        running = true;
+        practiceCurrentSentence();
+        return;
+    }
 
     sentenceList =
         document
@@ -490,12 +518,14 @@ function startPractice() {
 
     currentIndex = 0;
     running = true;
+    paused = false;
 
     practiceCurrentSentence();
 }
 
-function stopPractice() {
+function pausePractice() {
 
+    paused = true;
     running = false;
 
     speechSynthesis.cancel();
@@ -505,12 +535,47 @@ function stopPractice() {
     document.getElementById(
         "micStatus"
     ).textContent =
-        "⏹️ 停止中";
+        "⏸ 一時停止";
 
     document.getElementById(
         "status"
     ).textContent =
-        "停止しました";
+        "停止中";
+}
+
+function stopPractice() {
+
+    running = false;
+    paused = false;
+    currentIndex = 0;
+
+    speechSynthesis.cancel();
+
+    recognition.stop();
+
+    document.getElementById(
+        "micStatus"
+    ).textContent =
+        "⏹ 停止";
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "最初に戻りました";
+
+    document.getElementById(
+        "sentence"
+    ).textContent = "";
+
+    document.getElementById(
+        "recognized"
+    ).textContent =
+        "（まだ認識されていません）";
+
+    document.getElementById(
+        "score"
+    ).textContent =
+        "0%";
 }
 
 function toggleText() {
@@ -528,7 +593,6 @@ function toggleText() {
         );
 
     if (
-        running &&
         sentenceList.length > 0
     ) {
 
