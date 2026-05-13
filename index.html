@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>英語スピーキング練習</title>
+<title>スピーキング練習</title>
 
 <style>
 body {
@@ -134,7 +134,7 @@ input[type="range"] {
 
 <div class="container">
 
-<h1>英語スピーキング練習</h1>
+<h1>スピーキング練習</h1>
 
 <p>英文を1行ずつ貼ってください：</p>
 
@@ -307,6 +307,84 @@ function isKorean(text) {
     return /[\uAC00-\uD7A3]/.test(text);
 }
 
+function decomposeJamo(text) {
+
+    const INITIALS = [
+        'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ',
+        'ㄹ','ㅁ','ㅂ','ㅃ','ㅅ',
+        'ㅆ','ㅇ','ㅈ','ㅉ','ㅊ',
+        'ㅋ','ㅌ','ㅍ','ㅎ'
+    ];
+
+    const VOWELS = [
+        'ㅏ','ㅐ','ㅑ','ㅒ','ㅓ',
+        'ㅔ','ㅕ','ㅖ','ㅗ','ㅘ',
+        'ㅙ','ㅚ','ㅛ','ㅜ','ㅝ',
+        'ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'
+    ];
+
+    const FINALS = [
+        '','ㄱ','ㄲ','ㄳ','ㄴ',
+        'ㄵ','ㄶ','ㄷ','ㄹ','ㄺ',
+        'ㄻ','ㄼ','ㄽ','ㄾ','ㄿ',
+        'ㅀ','ㅁ','ㅂ','ㅄ','ㅅ',
+        'ㅆ','ㅇ','ㅈ','ㅊ','ㅋ',
+        'ㅌ','ㅍ','ㅎ'
+    ];
+
+    let result = "";
+
+    for (const char of text) {
+        const code = char.charCodeAt(0);
+        if (code >= 0xAC00 && code <= 0xD7A3) {
+            const offset = code - 0xAC00;
+            const finalIdx = offset % 28;
+            const vowelIdx =
+                Math.floor(offset / 28) % 21;
+            const initialIdx =
+                Math.floor(offset / 28 / 21);
+            result += INITIALS[initialIdx];
+            result += VOWELS[vowelIdx];
+            if (finalIdx > 0) {
+                result += FINALS[finalIdx];
+            }
+        } else {
+            result += char;
+        }
+    }
+
+    return result;
+}
+
+function levenshtein(a, b) {
+
+    const m = a.length;
+    const n = b.length;
+    const dp = Array.from(
+        { length: m + 1 },
+        (_, i) => Array.from(
+            { length: n + 1 },
+            (_, j) => i === 0 ? j : j === 0 ? i : 0
+        )
+    );
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (a[i - 1] === b[j - 1]) {
+                dp[i][j] = dp[i-1][j-1];
+            } else {
+                dp[i][j] = 1 + Math.min(
+                    dp[i-1][j],
+                    dp[i][j-1],
+                    dp[i-1][j-1]
+                );
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+
 function similarity(target, spoken) {
 
     target = normalize(target);
@@ -314,29 +392,26 @@ function similarity(target, spoken) {
 
     if (isKorean(target)) {
 
-        const targetChars =
-            target.replace(/\s/g, "").split("");
+        const targetJamo =
+            decomposeJamo(
+                target.replace(/\s/g, "")
+            );
 
-        const spokenChars =
-            spoken.replace(/\s/g, "").split("");
+        const spokenJamo =
+            decomposeJamo(
+                spoken.replace(/\s/g, "")
+            );
 
-        let matched = 0;
+        const dist =
+            levenshtein(
+                targetJamo,
+                spokenJamo
+            );
 
-        const spokenCopy =
-            [...spokenChars];
-
-        targetChars.forEach(char => {
-            const idx =
-                spokenCopy.indexOf(char);
-            if (idx !== -1) {
-                matched++;
-                spokenCopy.splice(idx, 1);
-            }
-        });
-
-        return matched /
+        return 1 - dist /
             Math.max(
-                targetChars.length,
+                targetJamo.length,
+                spokenJamo.length,
                 1
             );
     }
