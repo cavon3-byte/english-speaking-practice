@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スピーキング練習</title>
+<title>英語スピーキング練習</title>
 
 <style>
 body {
@@ -70,6 +70,20 @@ button {
     color: white;
 }
 
+.skip {
+    background: #8b5cf6;
+    color: white;
+}
+
+.retry {
+    background: #f97316;
+    color: white;
+    font-size: 18px;
+    padding: 14px 24px;
+    margin-top: 16px;
+    display: none;
+}
+
 .card {
     margin-top: 24px;
     padding: 20px;
@@ -120,7 +134,7 @@ input[type="range"] {
 
 <div class="container">
 
-<h1>スピーキング練習</h1>
+<h1>英語スピーキング練習</h1>
 
 <p>英文を1行ずつ貼ってください：</p>
 
@@ -147,6 +161,10 @@ Open your book.</textarea>
         onclick="toggleText()"
         id="toggleBtn">
         文章表示: ON
+    </button>
+
+    <button class="skip" onclick="skipSentence()">
+        ⏭ スキップ
     </button>
 
     <label>
@@ -208,6 +226,13 @@ Open your book.</textarea>
         id="status">
         待機中
     </div>
+
+    <button
+        class="retry"
+        id="retryBtn"
+        onclick="retryCurrentSentence()">
+        🔁 もう一度
+    </button>
 
 </div>
 
@@ -521,6 +546,10 @@ function(event) {
         ).textContent =
             "正解！次へ";
 
+        document.getElementById(
+            "retryBtn"
+        ).style.display = "none";
+
         playCorrectSound();
 
         currentIndex++;
@@ -544,25 +573,31 @@ function(event) {
         ).textContent =
             "もう一度！";
 
-        setTimeout(
-            practiceCurrentSentence,
-            700
-        );
+        document.getElementById(
+            "retryBtn"
+        ).style.display = "block";
     }
 };
 
 recognition.onerror =
-function() {
+function(event) {
 
     if (
         !running ||
         paused
     ) return;
 
+    if (event.error === "aborted") return;
+
     document.getElementById(
         "micStatus"
     ).textContent =
         "❌ 聞き取れませんでした";
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "もう一度！";
 
     setTimeout(
         practiceCurrentSentence,
@@ -660,6 +695,50 @@ function stopPractice() {
         "score"
     ).textContent =
         "0%";
+
+    document.getElementById(
+        "retryBtn"
+    ).style.display = "none";
+}
+
+function retryCurrentSentence() {
+
+    document.getElementById(
+        "retryBtn"
+    ).style.display = "none";
+
+    practiceCurrentSentence();
+}
+
+function skipSentence() {
+
+    if (!running) return;
+
+    speechSynthesis.cancel();
+    recognition.stop();
+
+    document.getElementById(
+        "retryBtn"
+    ).style.display = "none";
+
+    currentIndex++;
+
+    if (
+        currentIndex >=
+        sentenceList.length
+    ) {
+        currentIndex = 0;
+    }
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "スキップ";
+
+    setTimeout(
+        practiceCurrentSentence,
+        300
+    );
 }
 
 function toggleText() {
