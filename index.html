@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スピーキング練習</title>
+<title>英語スピーキング練習</title>
 
 <style>
 body {
@@ -134,15 +134,15 @@ input[type="range"] {
 
 <div class="container">
 
-<h1>スピーキング練習</h1>
+<h1>英語スピーキング練習</h1>
 
 <p>英文を1行ずつ貼ってください：</p>
 
 <textarea id="sentences">How was your day?
 Are you ready for bed?
-I want you to try again.
-Please sit down.
-Open your book.</textarea>
+안녕하세요|こんにちは
+잘 지냈어요?|元気でしたか？
+학교에 가요|学校に行きます</textarea>
 
 <div class="controls">
     <button class="start" onclick="startPractice()">
@@ -191,6 +191,19 @@ Open your book.</textarea>
 
     <div class="small">
         現在の文章
+    </div>
+
+    <div
+        id="translation"
+        style="
+            font-size: 16px;
+            color: #2563eb;
+            font-weight: bold;
+            min-height: 24px;
+            margin-top: 4px;
+            margin-bottom: 8px;
+            letter-spacing: 0.02em;
+        ">
     </div>
 
     <div class="sentence"
@@ -439,11 +452,35 @@ function practiceCurrentSentence() {
     const current =
         sentenceList[currentIndex];
 
+    const currentText =
+        current.text;
+
+    const selectedLang =
+        document.getElementById(
+            "languageSelect"
+        ).value;
+
+    const translationEl =
+        document.getElementById(
+            "translation"
+        );
+
+    if (
+        selectedLang === "ko" &&
+        current.translation
+    ) {
+        translationEl.textContent =
+            current.translation;
+    } else {
+        translationEl.textContent =
+            "";
+    }
+
     document.getElementById(
         "sentence"
     ).textContent =
         showText
-        ? current
+        ? currentText
         : "••••••••";
 
     document.getElementById(
@@ -461,7 +498,7 @@ function practiceCurrentSentence() {
     ).textContent =
         "読み上げ中…";
 
-    speak(current, () => {
+    speak(currentText, () => {
 
         if (
             !running ||
@@ -511,7 +548,7 @@ function(event) {
     const target =
         sentenceList[
             currentIndex
-        ];
+        ].text;
 
     document.getElementById(
         "recognized"
@@ -621,10 +658,20 @@ function startPractice() {
         )
         .value
         .split("\n")
-        .map(
-            s => s.trim()
-        )
-        .filter(Boolean);
+        .map(s => {
+            const parts =
+                s.trim().split("|");
+            return {
+                text: parts[0].trim(),
+                translation:
+                    parts[1]
+                    ? parts[1].trim()
+                    : ""
+            };
+        })
+        .filter(
+            item => item.text
+        );
 
     if (
         sentenceList.length === 0
@@ -765,7 +812,7 @@ function toggleText() {
             showText
             ? sentenceList[
                 currentIndex
-            ]
+            ].text
             : "••••••••";
     }
 }
