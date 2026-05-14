@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スピーキング練習</title>
+<title>英語スピーキング練習</title>
 
 <style>
 body {
@@ -90,6 +90,33 @@ button {
     border-radius: 16px;
     background: #fafafa;
     border: 1px solid #ddd;
+}
+
+.progress-wrap {
+    margin-bottom: 16px;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.progress-bar-bg {
+    background: #e5e7eb;
+    border-radius: 99px;
+    height: 10px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    background: #2563eb;
+    height: 100%;
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
 }
 
 .sentence {
@@ -188,6 +215,19 @@ Are you ready for bed?
 </div>
 
 <div class="card">
+
+    <div class="progress-wrap">
+        <div class="progress-label">
+            <span>進捗</span>
+            <span id="progressText">0 / 0</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div
+                class="progress-bar-fill"
+                id="progressBar">
+            </div>
+        </div>
+    </div>
 
     <div class="small">
         現在の文章
@@ -637,12 +677,69 @@ function speak(text, callback) {
     );
 }
 
+function updateProgress() {
+
+    const total =
+        sentenceList.length;
+
+    const current =
+        currentIndex + 1;
+
+    const pct =
+        total > 0
+        ? Math.round(
+            currentIndex / total * 100
+        )
+        : 0;
+
+    document.getElementById(
+        "progressText"
+    ).textContent =
+        total > 0
+        ? current + " / " + total
+        : "0 / 0";
+
+    document.getElementById(
+        "progressBar"
+    ).style.width =
+        pct + "%";
+}
+
+function speakTimes(text, times, callback) {
+
+    if (
+        !running ||
+        paused
+    ) return;
+
+    if (times <= 0) {
+        callback();
+        return;
+    }
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "読み上げ中… " +
+        (4 - times) + "/3";
+
+    speak(text, () => {
+        speakTimes(
+            text,
+            times - 1,
+            callback
+        );
+    });
+}
+
 function practiceCurrentSentence() {
 
     if (
         !running ||
         paused
     ) return;
+
+    updateProgress();
 
     const current =
         sentenceList[currentIndex];
@@ -693,7 +790,7 @@ function practiceCurrentSentence() {
     ).textContent =
         "読み上げ中…";
 
-    speak(currentText, () => {
+    const speakAndListen = () => {
 
         if (
             !running ||
@@ -720,7 +817,17 @@ function practiceCurrentSentence() {
             ].recognition;
 
         recognition.start();
-    });
+    };
+
+    if (!showText) {
+        speakTimes(
+            currentText,
+            3,
+            speakAndListen
+        );
+    } else {
+        speak(currentText, speakAndListen);
+    }
 }
 
 recognition.onresult =
@@ -791,6 +898,17 @@ function(event) {
             sentenceList.length
         ) {
             currentIndex = 0;
+
+            document.getElementById(
+                "progressBar"
+            ).style.width = "100%";
+
+            document.getElementById(
+                "progressText"
+            ).textContent =
+                sentenceList.length +
+                " / " +
+                sentenceList.length;
         }
 
         setTimeout(
@@ -923,6 +1041,14 @@ function stopPractice() {
         "status"
     ).textContent =
         "最初に戻りました";
+
+    document.getElementById(
+        "progressBar"
+    ).style.width = "0%";
+
+    document.getElementById(
+        "progressText"
+    ).textContent = "0 / 0";
 
     document.getElementById(
         "sentence"
