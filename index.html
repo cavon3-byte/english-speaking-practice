@@ -161,7 +161,7 @@ input[type="range"] {
 
 <div class="container">
 
-<h1>スピーキング練習</h1>
+<h1>英語スピーキング練習</h1>
 
 <p>英文を1行ずつ貼ってください：</p>
 
@@ -314,6 +314,7 @@ let currentIndex = 0;
 let running = false;
 let paused = false;
 let showText = true;
+let englishHiddenMode = false;
 
 const languageConfig = {
     en: {
@@ -912,7 +913,18 @@ function(event) {
         }
 
         setTimeout(
-            practiceCurrentSentence,
+            () => {
+                if (
+                    englishHiddenMode
+                ) {
+                    showText = false;
+                    document.getElementById(
+                        "toggleBtn"
+                    ).textContent =
+                        "文章表示: OFF";
+                }
+                practiceCurrentSentence();
+            },
             700
         );
 
@@ -923,9 +935,83 @@ function(event) {
         ).textContent =
             "もう一度！";
 
-        document.getElementById(
-            "retryBtn"
-        ).style.display = "block";
+        if (
+            englishHiddenMode &&
+            !showText
+        ) {
+            showText = true;
+
+            document.getElementById(
+                "toggleBtn"
+            ).textContent =
+                "文章表示: ON";
+
+            document.getElementById(
+                "sentence"
+            ).textContent =
+                sentenceList[
+                    currentIndex
+                ].text;
+
+            document.getElementById(
+                "status"
+            ).textContent =
+                "文章を確認してください";
+
+            setTimeout(() => {
+
+                if (
+                    !running ||
+                    paused
+                ) return;
+
+                document.getElementById(
+                    "status"
+                ).textContent =
+                    "読み上げ中…";
+
+                speak(
+                    sentenceList[
+                        currentIndex
+                    ].text,
+                    () => {
+
+                        if (
+                            !running ||
+                            paused
+                        ) return;
+
+                        document.getElementById(
+                            "status"
+                        ).textContent =
+                            "あなたの番です";
+
+                        document.getElementById(
+                            "micStatus"
+                        ).textContent =
+                            "🎤 聞き取り中…";
+
+                        const lang =
+                            document.getElementById(
+                                "languageSelect"
+                            ).value;
+
+                        recognition.lang =
+                            languageConfig[
+                                lang
+                            ].recognition;
+
+                        recognition.start();
+                    }
+                );
+            }, 1500);
+
+        } else {
+
+            document.getElementById(
+                "retryBtn"
+            ).style.display = "block";
+        }
     }
 };
 
@@ -999,6 +1085,22 @@ function startPractice() {
     running = true;
     paused = false;
 
+    const startLang =
+        document.getElementById(
+            "languageSelect"
+        ).value;
+
+    if (startLang === "en") {
+        englishHiddenMode = true;
+        showText = false;
+        document.getElementById(
+            "toggleBtn"
+        ).textContent =
+            "文章表示: OFF";
+    } else {
+        englishHiddenMode = false;
+    }
+
     practiceCurrentSentence();
 }
 
@@ -1027,6 +1129,7 @@ function stopPractice() {
     running = false;
     paused = false;
     currentIndex = 0;
+    englishHiddenMode = false;
 
     speechSynthesis.cancel();
 
