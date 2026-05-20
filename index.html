@@ -167,9 +167,9 @@ input[type="range"] {
 
 <textarea id="sentences">How was your day?
 Are you ready for bed?
-안녕하세요|こんにちは
-잘 지냈어요?|元気でしたか？
-학교에 가요|学校に行きます</textarea>
+I'll be back in a minute.
+Could you say that again?
+That's not what I meant.</textarea>
 
 <div class="controls">
     <button class="start" onclick="startPractice()">
@@ -204,14 +204,6 @@ Are you ready for bed?
             value="0.8"
             id="speedSlider">
     </label>
-    <label>
-        言語
-        <select id="languageSelect">
-            <option value="en" selected>🇺🇸 English</option>
-            <option value="ko">🇰🇷 한국어</option>
-            <option value="es">🇪🇸 Español</option>
-        </select>
-    </label>
 </div>
 
 <div class="card">
@@ -231,19 +223,6 @@ Are you ready for bed?
 
     <div class="small">
         現在の文章
-    </div>
-
-    <div
-        id="translation"
-        style="
-            font-size: 16px;
-            color: #2563eb;
-            font-weight: bold;
-            min-height: 24px;
-            margin-top: 4px;
-            margin-bottom: 8px;
-            letter-spacing: 0.02em;
-        ">
     </div>
 
     <div class="sentence"
@@ -308,6 +287,7 @@ const recognition =
 
 recognition.interimResults = false;
 recognition.maxAlternatives = 1;
+recognition.lang = "en-US";
 
 let sentenceList = [];
 let currentIndex = 0;
@@ -315,113 +295,14 @@ let running = false;
 let paused = false;
 let showText = true;
 
-// 英語専用の内部ステータス管理
-// 'step1_1', 'step1_2', 'step1_3', 'step2', 'step3'
-let englishStep = 'step1_1'; 
+// 'step1_1'〜'step1_5': 表示あり読み上げ1〜5回目
+// 'step2': 表示あり・判定後リトライ
+// 'step3_1'〜'step3_3': 非表示読み上げ1〜3回目
+let englishStep = 'step1_1';
 
-const languageConfig = {
-    en: {
-        speech: "en-US",
-        recognition: "en-US",
-        threshold: 85
-    },
-    ko: {
-        speech: "ko-KR",
-        recognition: "ko-KR",
-        threshold: 80
-    },
-    es: {
-        speech: "es-ES",
-        recognition: "es-ES",
-        threshold: 85
-    }
-};
+const THRESHOLD = 85;
 
-function isKorean(text) {
-    return /[\uAC00-\uD7A3]/.test(text);
-}
-
-const KOREAN_NUMBERS = {
-    0: '영', 1: '일', 2: '이', 3: '삼',
-    4: '사', 5: '오', 6: '육', 7: '칠',
-    8: '팔', 9: '구', 10: '십',
-    20: '이십', 30: '삼십', 40: '사십',
-    50: '오십', 60: '육십', 70: '칠십',
-    80: '팔십', 90: '구십'
-};
-
-const NATIVE_KOREAN_NUMBERS = {
-    1: '하나', 2: '둘', 3: '셋', 4: '넷',
-    5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟',
-    9: '아홉', 10: '열',
-    11: '열하나', 12: '열둘', 13: '열셋',
-    14: '열넷', 15: '열다섯', 16: '열여섯',
-    17: '열일곱', 18: '열여덟', 19: '열아홉',
-    20: '스물', 21: '스물하나', 22: '스물둘',
-    23: '스물셋', 24: '스물넷', 25: '스물다섯',
-    26: '스물여섯', 27: '스물일곱', 28: '스물여덟',
-    29: '스물아홉', 30: '서른', 31: '서른하나',
-    32: '서른둘', 33: '서른셋', 34: '서른넷',
-    35: '서른다섯', 36: '서른여섯', 37: '서른일곱',
-    38: '서른여덟', 39: '서른아홉', 40: '마흔',
-    41: '마흔하나', 42: '마흔둘', 43: '마흔셋',
-    44: '마흔넷', 45: '마흔다섯', 46: '마흔여섯',
-    47: '마흔일곱', 48: '마흔여덟', 49: '마흔아홉',
-    50: '쉰', 51: '쉰하나', 52: '쉰둘',
-    53: '쉰셋', 54: '쉰넷', 55: '쉰다섯',
-    56: '쉰여섯', 57: '쉰일곱', 58: '쉰여덟',
-    59: '쉰아홉', 60: '예순', 61: '예순하나',
-    62: '예순둘', 63: '예순셋', 64: '예순넷',
-    65: '예순다섯', 66: '예순여섯', 67: '예순일곱',
-    68: '예순여덟', 69: '예순아홉', 70: '일흔',
-    71: '일흔하나', 72: '일흔둘', 73: '일흔셋',
-    74: '일흔넷', 75: '일흔다섯', 76: '일흔여섯',
-    77: '일흔일곱', 78: '일흔여덟', 79: '일흔아홉',
-    80: '여든', 81: '여든하나', 82: '여든둘',
-    83: '여든셋', 84: '여든넷', 85: '여든다섯',
-    86: '여든여섯', 87: '여든일곱', 88: '여든여덟',
-    89: '여든아홉', 90: '아흔', 91: '아흔하나',
-    92: '아흔둘', 93: '아흔셋', 94: '아흔넷',
-    95: '아흔다섯', 96: '아흔여섯', 97: '아흔일곱',
-    98: '아흔여덟', 99: '아흔아홉'
-};
-
-function numberToSino(n) {
-    n = parseInt(n, 10);
-    if (n === 0) return '영';
-    if (n <= 10) return KOREAN_NUMBERS[n];
-    if (n < 100) {
-        const tens = Math.floor(n / 10) * 10;
-        const ones = n % 10;
-        return KOREAN_NUMBERS[tens] +
-            (ones > 0 ? KOREAN_NUMBERS[ones] : '');
-    }
-    return String(n);
-}
-
-function numberToNative(n) {
-    n = parseInt(n, 10);
-    if (NATIVE_KOREAN_NUMBERS[n]) {
-        return NATIVE_KOREAN_NUMBERS[n];
-    }
-    return String(n);
-}
-
-function convertNumbersToKorean(text, useNative) {
-    return text.replace(/\d+/g, match =>
-        useNative
-        ? numberToNative(match)
-        : numberToSino(match)
-    );
-}
-
-function normalize(text, useNative) {
-    if (isKorean(text) || /\d/.test(text)) {
-        text = convertNumbersToKorean(
-            text,
-            useNative || false
-        );
-    }
+function normalize(text) {
     return text
         .toLowerCase()
         .normalize("NFD")
@@ -431,180 +312,24 @@ function normalize(text, useNative) {
         .trim();
 }
 
-function decomposeJamo(text) {
-
-    const INITIALS = [
-        'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ',
-        'ㄹ','ㅁ','ㅂ','ㅃ','ㅅ',
-        'ㅆ','ㅇ','ㅈ','ㅉ','ㅊ',
-        'ㅋ','ㅌ','ㅍ','ㅎ'
-    ];
-
-    const VOWELS = [
-        'ㅏ','ㅐ','ㅑ','ㅒ','ㅓ',
-        'ㅔ','ㅕ','ㅖ','ㅗ','ㅘ',
-        'ㅙ','ㅚ','ㅛ','ㅜ','ㅝ',
-        'ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'
-    ];
-
-    const FINALS = [
-        '','ㄱ','ㄲ','ㄳ','ㄴ',
-        'ㄵ','ㄶ','ㄷ','ㄹ','ㄺ',
-        'ㄻ','ㄼ','ㄽ','ㄾ','ㄿ',
-        'ㅀ','ㅁ','ㅂ','ㅄ','ㅅ',
-        'ㅆ','ㅇ','ㅈ','ㅊ','ㅋ',
-        'ㅌ','ㅍ','ㅎ'
-    ];
-
-    let result = "";
-
-    for (const char of text) {
-        const code = char.charCodeAt(0);
-        if (code >= 0xAC00 && code <= 0xD7A3) {
-            const offset = code - 0xAC00;
-            const finalIdx = offset % 28;
-            const vowelIdx =
-                Math.floor(offset / 28) % 21;
-            const initialIdx =
-                Math.floor(offset / 28 / 21);
-            result += INITIALS[initialIdx];
-            result += VOWELS[vowelIdx];
-            if (finalIdx > 0) {
-                result += FINALS[finalIdx];
-            }
-        } else {
-            result += char;
-        }
-    }
-
-    return result;
-}
-
-function levenshtein(a, b) {
-
-    const m = a.length;
-    const n = b.length;
-    const dp = Array.from(
-        { length: m + 1 },
-        (_, i) => Array.from(
-            { length: n + 1 },
-            (_, j) => i === 0 ? j : j === 0 ? i : 0
-        )
-    );
-
-    for (let i = 1; i <= m; i++) {
-        for (let j = 1; j <= n; j++) {
-            if (a[i - 1] === b[j - 1]) {
-                dp[i][j] = dp[i-1][j-1];
-            } else {
-                dp[i][j] = 1 + Math.min(
-                    dp[i-1][j],
-                    dp[i][j-1],
-                    dp[i-1][j-1]
-                );
-            }
-        }
-    }
-
-    return dp[m][n];
-}
-
-function koreanSimilarity(target, spoken) {
-
-    const targetJamo =
-        decomposeJamo(
-            target.replace(/\s/g, "")
-        );
-
-    const spokenJamo =
-        decomposeJamo(
-            spoken.replace(/\s/g, "")
-        );
-
-    const dist =
-        levenshtein(
-            targetJamo,
-            spokenJamo
-        );
-
-    return 1 - dist /
-        Math.max(
-            targetJamo.length,
-            spokenJamo.length,
-            1
-        );
-}
-
 function similarity(target, spoken) {
-
-    if (isKorean(target) || /\d/.test(target)) {
-
-        const targetSino =
-            normalize(target, false);
-        const targetNative =
-            normalize(target, true);
-        const spokenSino =
-            normalize(spoken, false);
-        const spokenNative =
-            normalize(spoken, true);
-
-        const score1 =
-            koreanSimilarity(
-                targetSino,
-                spokenSino
-            );
-        const score2 =
-            koreanSimilarity(
-                targetNative,
-                spokenSino
-            );
-        const score3 =
-            koreanSimilarity(
-                targetSino,
-                spokenNative
-            );
-        const score4 =
-            koreanSimilarity(
-                targetNative,
-                spokenNative
-            );
-
-        return Math.max(
-            score1,
-            score2,
-            score3,
-            score4
-        );
-    }
-
     target = normalize(target);
     spoken = normalize(spoken);
 
-    const targetWords =
-        target.split(" ");
-
-    const spokenWords =
-        spoken.split(" ");
+    const targetWords = target.split(" ");
+    const spokenWords = spoken.split(" ");
 
     let matched = 0;
-
     targetWords.forEach(word => {
-        if (
-            spokenWords.includes(word)
-        ) {
+        if (spokenWords.includes(word)) {
             matched++;
         }
     });
 
-    return matched /
-        Math.max(
-            targetWords.length,
-            1
-        );
+    return matched / Math.max(targetWords.length, 1);
 }
 
 function playCorrectSound() {
-
     const audioContext =
         new (
             window.AudioContext ||
@@ -618,9 +343,7 @@ function playCorrectSound() {
         audioContext.createGain();
 
     oscillator.connect(gainNode);
-    gainNode.connect(
-        audioContext.destination
-    );
+    gainNode.connect(audioContext.destination);
 
     oscillator.frequency.value = 800;
     oscillator.type = "sine";
@@ -631,104 +354,61 @@ function playCorrectSound() {
     );
 
     oscillator.start();
-
-    oscillator.stop(
-        audioContext.currentTime + 0.15
-    );
+    oscillator.stop(audioContext.currentTime + 0.15);
 }
 
 function speak(text, callback) {
-
     speechSynthesis.cancel();
 
     const utterance =
-        new SpeechSynthesisUtterance(
-            text
-        );
+        new SpeechSynthesisUtterance(text);
 
-    const selectedLanguage =
-        document.getElementById(
-            "languageSelect"
-        ).value;
-    utterance.lang =
-        languageConfig[
-            selectedLanguage
-        ].speech;
-
-    utterance.rate =
-        parseFloat(
-            document
-            .getElementById(
-                "speedSlider"
-            ).value
-        );
+    utterance.lang = "en-US";
+    utterance.rate = parseFloat(
+        document.getElementById("speedSlider").value
+    );
 
     utterance.onend = () => {
-
-        if (
-            !running ||
-            paused
-        ) return;
-
-        setTimeout(
-            callback,
-            800
-        );
+        if (!running || paused) return;
+        setTimeout(callback, 800);
     };
 
-    speechSynthesis.speak(
-        utterance
-    );
+    speechSynthesis.speak(utterance);
 }
 
 function updateProgress() {
-
-    const total =
-        sentenceList.length;
-
-    const current =
-        currentIndex + 1;
-
-    const pct =
-        total > 0
-        ? Math.round(
-            currentIndex / total * 100
-        )
+    const total = sentenceList.length;
+    const current = currentIndex + 1;
+    const pct = total > 0
+        ? Math.round(currentIndex / total * 100)
         : 0;
 
-    document.getElementById(
-        "progressText"
-    ).textContent =
-        total > 0
-        ? current + " / " + total
-        : "0 / 0";
+    document.getElementById("progressText").textContent =
+        total > 0 ? current + " / " + total : "0 / 0";
 
-    document.getElementById(
-        "progressBar"
-    ).style.width =
+    document.getElementById("progressBar").style.width =
         pct + "%";
 }
 
 function updateUI(textState, statusMsg, micMsg = "🎤 待機中") {
     const currentText = sentenceList[currentIndex].text;
-    
-    // UI画面上の文章表示のON/OFFを適用
+
     showText = textState;
-    document.getElementById("toggleBtn").textContent = "文章表示: " + (showText ? "ON" : "OFF");
-    document.getElementById("sentence").textContent = showText ? currentText : "••••••••";
-    
+    document.getElementById("toggleBtn").textContent =
+        "文章表示: " + (showText ? "ON" : "OFF");
+    document.getElementById("sentence").textContent =
+        showText ? currentText : "••••••••";
+
     document.getElementById("status").textContent = statusMsg;
     document.getElementById("micStatus").textContent = micMsg;
 }
 
 function startListening() {
     if (!running || paused) return;
-    
+
     document.getElementById("status").textContent = "あなたの番です";
     document.getElementById("micStatus").textContent = "🎤 聞き取り中…";
-    
-    const selectedLanguage = document.getElementById("languageSelect").value;
-    recognition.lang = languageConfig[selectedLanguage].recognition;
+
     recognition.start();
 }
 
@@ -737,61 +417,68 @@ function practiceCurrentSentence() {
 
     updateProgress();
 
-    const current = sentenceList[currentIndex];
-    const currentText = current.text;
-    const selectedLang = document.getElementById("languageSelect").value;
-    const translationEl = document.getElementById("translation");
-
-    if (selectedLang === "ko" && current.translation) {
-        translationEl.textContent = current.translation;
-    } else {
-        translationEl.textContent = "";
-    }
+    const currentText = sentenceList[currentIndex].text;
 
     document.getElementById("recognized").textContent = "（聞き取り待機中）";
     document.getElementById("score").textContent = "0%";
 
-    // 🌟 【英語モード】専用の新フローロジック
-    if (selectedLang === "en") {
-        if (englishStep === 'step1_1') {
-            updateUI(true, "ステップ1 (1回目): 読み上げ中…");
+    const step1Sequence = [
+        'step1_1', 'step1_2', 'step1_3', 'step1_4', 'step1_5'
+    ];
+    const step1Next = {
+        'step1_1': 'step1_2',
+        'step1_2': 'step1_3',
+        'step1_3': 'step1_4',
+        'step1_4': 'step1_5'
+    };
+    const step1Labels = {
+        'step1_1': '1',
+        'step1_2': '2',
+        'step1_3': '3',
+        'step1_4': '4',
+        'step1_5': '5'
+    };
+
+    const step3Sequence = [
+        'step3_1', 'step3_2', 'step3_3'
+    ];
+    const step3Next = {
+        'step3_1': 'step3_2',
+        'step3_2': 'step3_3'
+    };
+    const step3Labels = {
+        'step3_1': '1',
+        'step3_2': '2',
+        'step3_3': '3'
+    };
+
+    if (step1Sequence.includes(englishStep)) {
+        const label = step1Labels[englishStep];
+        updateUI(true, `ステップ1 (${label}回目): 読み上げ中…`);
+        if (englishStep === 'step1_5') {
+            speak(currentText, () => { startListening(); });
+        } else {
             speak(currentText, () => {
-                englishStep = 'step1_2';
+                englishStep = step1Next[englishStep];
                 practiceCurrentSentence();
-            });
-        } 
-        else if (englishStep === 'step1_2') {
-            updateUI(true, "ステップ1 (2回目): 読み上げ中…");
-            speak(currentText, () => {
-                englishStep = 'step1_3';
-                practiceCurrentSentence();
-            });
-        } 
-        else if (englishStep === 'step1_3') {
-            updateUI(true, "ステップ1 (3回目): 読み上げ中…");
-            speak(currentText, () => {
-                startListening();
-            });
-        } 
-        else if (englishStep === 'step2') {
-            updateUI(true, "ステップ2: 読み上げ中…");
-            speak(currentText, () => {
-                startListening();
-            });
-        } 
-        else if (englishStep === 'step3') {
-            updateUI(false, "ステップ3 (文章非表示): 読み上げ中…");
-            speak(currentText, () => {
-                startListening();
             });
         }
-    } 
-    // 🌟 【他言語モード】従来の通常フロー
-    else {
-        updateUI(showText, "読み上げ中…");
-        speak(currentText, () => {
-            startListening();
-        });
+    }
+    else if (englishStep === 'step2') {
+        updateUI(true, "ステップ2 (リトライ): 読み上げ中…");
+        speak(currentText, () => { startListening(); });
+    }
+    else if (step3Sequence.includes(englishStep)) {
+        const label = step3Labels[englishStep];
+        updateUI(false, `ステップ3 (非表示 ${label}回目): 読み上げ中…`);
+        if (englishStep === 'step3_3') {
+            speak(currentText, () => { startListening(); });
+        } else {
+            speak(currentText, () => {
+                englishStep = step3Next[englishStep];
+                practiceCurrentSentence();
+            });
+        }
     }
 }
 
@@ -800,9 +487,10 @@ function nextSentence() {
     if (currentIndex >= sentenceList.length) {
         currentIndex = 0;
         document.getElementById("progressBar").style.width = "100%";
-        document.getElementById("progressText").textContent = sentenceList.length + " / " + sentenceList.length;
+        document.getElementById("progressText").textContent =
+            sentenceList.length + " / " + sentenceList.length;
     }
-    englishStep = 'step1_1'; // ステップを初期化
+    englishStep = 'step1_1';
     setTimeout(practiceCurrentSentence, 700);
 }
 
@@ -818,72 +506,59 @@ recognition.onresult = function(event) {
     const score = Math.round(similarity(target, spoken) * 100);
     document.getElementById("score").textContent = score + "%";
 
-    const selectedLanguage = document.getElementById("languageSelect").value;
-    const threshold = languageConfig[selectedLanguage].threshold;
+    document.getElementById("retryBtn").style.display = "none";
 
-    // 🌟 【英語モード】判定分岐
-    if (selectedLanguage === "en") {
-        document.getElementById("retryBtn").style.display = "none";
-
-        if (englishStep === 'step1_3') {
-            if (score >= threshold) {
-                document.getElementById("status").textContent = "合格！ステップ3（文章非表示）へ";
-                playCorrectSound();
-                englishStep = 'step3';
-                setTimeout(practiceCurrentSentence, 1500);
-            } else {
-                document.getElementById("status").textContent = "しきい値未満：ステップ2を繰り返します";
-                englishStep = 'step2';
-                setTimeout(practiceCurrentSentence, 1500);
-            }
-        } 
-        else if (englishStep === 'step2') {
-            if (score >= threshold) {
-                document.getElementById("status").textContent = "合格！ステップ3（文章非表示）へ";
-                playCorrectSound();
-                englishStep = 'step3';
-                setTimeout(practiceCurrentSentence, 1500);
-            } else {
-                document.getElementById("status").textContent = "もう一度（しきい値未満）";
-                // 繰り返しのためstep2のまま再起動
-                setTimeout(practiceCurrentSentence, 1500);
-            }
-        } 
-        else if (englishStep === 'step3') {
-            if (score >= threshold) {
-                document.getElementById("status").textContent = "パーフェクト！次の文章へ";
-                playCorrectSound();
-                nextSentence();
-            } else {
-                document.getElementById("status").textContent = "不合格：文章を確認して次へ進みます";
-                // 文章表示ONに戻して1回だけ発音させて、結果に関わらず次へ
-                updateUI(true, "確認読み上げ中…");
-                speak(target, () => {
-                    document.getElementById("status").textContent = "あなたの番です(確認)";
-                    document.getElementById("micStatus").textContent = "🎤 聞き取り中…";
-                    recognition.start();
-                    // このマイクが終わったら強制的に次にいくように一時的に状態を書き換える
-                    englishStep = 'step3_fail_final'; 
-                });
-            }
+    if (englishStep === 'step1_5') {
+        if (score >= THRESHOLD) {
+            document.getElementById("status").textContent =
+                "合格！ステップ3（文章非表示）へ";
+            playCorrectSound();
+            englishStep = 'step3_1';
+            setTimeout(practiceCurrentSentence, 1500);
+        } else {
+            document.getElementById("status").textContent =
+                "しきい値未満：もう一度（表示あり）";
+            englishStep = 'step2';
+            setTimeout(practiceCurrentSentence, 1500);
         }
-        else if (englishStep === 'step3_fail_final') {
-            // ステップ3で失敗した後の、確認発音終了後の処理
-            document.getElementById("status").textContent = "終了。次の文章へ";
-            nextSentence();
+    }
+    else if (englishStep === 'step2') {
+        if (score >= THRESHOLD) {
+            document.getElementById("status").textContent =
+                "合格！ステップ3（文章非表示）へ";
+            playCorrectSound();
+            englishStep = 'step3_1';
+            setTimeout(practiceCurrentSentence, 1500);
+        } else {
+            document.getElementById("status").textContent =
+                "もう一度（しきい値未満）";
+            setTimeout(practiceCurrentSentence, 1500);
         }
-    } 
-    // 🌟 【他言語モード】従来の判定
-    else {
-        if (score >= threshold) {
-            document.getElementById("status").textContent = "正解！次へ";
-            document.getElementById("retryBtn").style.display = "none";
+    }
+    else if (englishStep === 'step3_3') {
+        if (score >= THRESHOLD) {
+            document.getElementById("status").textContent =
+                "パーフェクト！次の文章へ";
             playCorrectSound();
             nextSentence();
         } else {
-            document.getElementById("status").textContent = "もう一度！";
-            document.getElementById("retryBtn").style.display = "block";
+            document.getElementById("status").textContent =
+                "不合格：文章を確認して次へ進みます";
+            updateUI(true, "確認読み上げ中…");
+            speak(target, () => {
+                document.getElementById("status").textContent =
+                    "あなたの番です(確認)";
+                document.getElementById("micStatus").textContent =
+                    "🎤 聞き取り中…";
+                recognition.start();
+                englishStep = 'step3_fail_final';
+            });
         }
+    }
+    else if (englishStep === 'step3_fail_final') {
+        document.getElementById("status").textContent =
+            "終了。次の文章へ";
+        nextSentence();
     }
 };
 
@@ -891,8 +566,10 @@ recognition.onerror = function(event) {
     if (!running || paused) return;
     if (event.error === "aborted") return;
 
-    document.getElementById("micStatus").textContent = "❌ 聞き取れませんでした";
-    document.getElementById("status").textContent = "エラーのためもう一度トライします";
+    document.getElementById("micStatus").textContent =
+        "❌ 聞き取れませんでした";
+    document.getElementById("status").textContent =
+        "エラーのためもう一度トライします";
 
     setTimeout(practiceCurrentSentence, 1000);
 };
@@ -907,13 +584,7 @@ function startPractice() {
 
     sentenceList = document.getElementById("sentences").value
         .split("\n")
-        .map(s => {
-            const parts = s.trim().split("|");
-            return {
-                text: parts[0].trim(),
-                translation: parts[1] ? parts[1].trim() : ""
-            };
-        })
+        .map(s => ({ text: s.trim() }))
         .filter(item => item.text);
 
     if (sentenceList.length === 0) {
@@ -924,14 +595,8 @@ function startPractice() {
     currentIndex = 0;
     running = true;
     paused = false;
-
-    const startLang = document.getElementById("languageSelect").value;
-    if (startLang === "en") {
-        englishStep = 'step1_1';
-        showText = true; 
-    } else {
-        showText = true;
-    }
+    englishStep = 'step1_1';
+    showText = true;
 
     practiceCurrentSentence();
 }
@@ -960,7 +625,8 @@ function stopPractice() {
     document.getElementById("progressBar").style.width = "0%";
     document.getElementById("progressText").textContent = "0 / 0";
     document.getElementById("sentence").textContent = "";
-    document.getElementById("recognized").textContent = "（まだ認識されていません）";
+    document.getElementById("recognized").textContent =
+        "（まだ認識されていません）";
     document.getElementById("score").textContent = "0%";
     document.getElementById("retryBtn").style.display = "none";
 }
@@ -977,11 +643,10 @@ function skipSentence() {
     recognition.stop();
     document.getElementById("retryBtn").style.display = "none";
 
-    // 英語のステップ2で停滞していても、スキップで強制突破できるように設定
-    const selectedLanguage = document.getElementById("languageSelect").value;
-    if (selectedLanguage === 'en' && englishStep === 'step2') {
-        document.getElementById("status").textContent = "強制突破：ステップ3へ";
-        englishStep = 'step3';
+    if (englishStep === 'step2') {
+        document.getElementById("status").textContent =
+            "強制突破：ステップ3へ";
+        englishStep = 'step3_1';
         setTimeout(practiceCurrentSentence, 300);
     } else {
         document.getElementById("status").textContent = "スキップ";
@@ -991,10 +656,12 @@ function skipSentence() {
 
 function toggleText() {
     showText = !showText;
-    document.getElementById("toggleBtn").textContent = "文章表示: " + (showText ? "ON" : "OFF");
+    document.getElementById("toggleBtn").textContent =
+        "文章表示: " + (showText ? "ON" : "OFF");
 
     if (sentenceList.length > 0) {
-        document.getElementById("sentence").textContent = showText ? sentenceList[currentIndex].text : "••••••••";
+        document.getElementById("sentence").textContent =
+            showText ? sentenceList[currentIndex].text : "••••••••";
     }
 }
 
